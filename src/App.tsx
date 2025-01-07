@@ -310,12 +310,10 @@ function run() {
 
 requestAnimationFrame(run);
 
-function App() {
+export default function App() {
   return (
     <>
       <></>
     </>
   );
 }
-
-export default App;
