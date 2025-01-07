@@ -153,7 +153,11 @@ function drawTriangleList(triangleList: Float32Array) {
 
 type Vec2 = [number, number];
 
+type Vec3 = [number, number, number];
+
 type Vec4 = [number, number, number, number];
+
+type Mat4 = [Vec4, Vec4, Vec4, Vec4];
 
 // type Vertex2D = {
 //   x: number;
@@ -166,12 +170,29 @@ type Vec4 = [number, number, number, number];
 //   a: number;
 // };
 
-function vec2(): Vec2 {
-  return [0, 0];
+function vec2(): Vec2;
+function vec2(vec: Vec3): Vec2;
+function vec2(vec: Vec4): Vec2;
+function vec2(vec?: Vec3 | Vec4): Vec2 {
+  if (!vec) {
+    return [0, 0];
+  } else {
+    const [x, y] = vec;
+    return [x, y];
+  }
 }
 
-function vec4(): Vec4 {
-  return [0, 0, 0, 0];
+function vec4(): Vec4;
+function vec4(vec: Vec2): Vec4;
+function vec4(vec: Vec3): Vec4;
+function vec4(vec?: Vec2 | Vec3): Vec4 {
+  if (!vec) {
+    return [0, 0, 0, 0];
+  } else if (vec.length == 2) {
+    return [...vec, 0, 1];
+  } else {
+    return [...vec, 1];
+  }
 }
 
 class Triangle2D {
@@ -181,6 +202,33 @@ class Triangle2D {
   bColor: Vec4 = vec4();
   cPos: Vec2 = vec2();
   cColor: Vec4 = vec4();
+
+  constructor() {
+    this.aPos = [-1.0, 1.0];
+    this.aColor = [1.0, 0.0, 0.0, 1.0];
+    this.bPos = [1.0, 1.0];
+    this.bColor = [0.0, 1.0, 0.0, 1.0];
+    this.cPos = [1.0, -1.0];
+    this.cColor = [0.0, 0.0, 1.0, 1.0];
+  }
+
+  scale(scale: Vec2) {
+    this.aPos = scaleVec2(this.aPos, scale);
+    this.bPos = scaleVec2(this.bPos, scale);
+    this.cPos = scaleVec2(this.cPos, scale);
+  }
+
+  translate(translation: Vec2) {
+    this.aPos = translateVec2(this.aPos, translation);
+    this.bPos = translateVec2(this.bPos, translation);
+    this.cPos = translateVec2(this.cPos, translation);
+  }
+
+  rotate(theta: number) {
+    this.aPos = rotateVec2(this.aPos, theta);
+    this.bPos = rotateVec2(this.bPos, theta);
+    this.cPos = rotateVec2(this.cPos, theta);
+  }
 
   getVertices(): number[] {
     return [
@@ -212,34 +260,83 @@ class Triangle2D {
 //   }
 // }
 
+function matMult(point: Vec4, matrix: Mat4): Vec4 {
+  const vecResult = vec4();
+  for (let i = 0; i < matrix.length; i++) {
+    const currMatVec = matrix[i];
+    for (let j = 0; j < currMatVec.length; j++) {
+      const currMatVecVal = currMatVec[j];
+      const currPointVal = point[j];
+      const multResult = currMatVecVal * currPointVal;
+      vecResult[i] += multResult;
+    }
+  }
+  return vecResult;
+}
+
 function translateVec2(point: Vec2, translation: Vec2): Vec2 {
-  const pointVec4 = [...point, 0, 1] as const;
-  //   const matrix = [
-  //     [1.0, 0.0, 0.0, translation[0]],
-  //     [0.0, 1.0, 0.0, translation[1]],
-  //     [0.0, 0.0, 1.0, 0.0],
-  //     [0.0, 0.0, 0.0, 1.0],
-  //   ] as const;
+  const matrix: Mat4 = [
+    [1.0, 0.0, 0.0, translation[0]],
+    [0.0, 1.0, 0.0, translation[1]],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+  ];
 
-  const x = translation[0] + pointVec4[0];
-  const y = translation[1] + pointVec4[1];
-
-  return [x, y];
+  const translatedPoint = vec2(matMult(vec4(point), matrix));
+  return translatedPoint;
 }
 
 function scaleVec2(point: Vec2, scale: Vec2): Vec2 {
-  const pointVec4 = [...point, 0, 1] as const;
-  //   const matrix = [
-  //     [scaleX, 0.0, 0.0, 0.0],
-  //     [0.0, scaleY, 0.0, 0.0],
-  //     [0.0, 0.0, 1.0, 0.0],
-  //     [0.0, 0.0, 0.0, 1.0],
-  //   ] as const;
+  const s1 = scale[0];
+  const s2 = scale[1];
+  const matrix: Mat4 = [
+    [s1, 0.0, 0.0, 0.0],
+    [0.0, s2, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+  ];
 
-  const x = scale[0] * pointVec4[0];
-  const y = scale[1] * pointVec4[1];
+  const translatedPoint = vec2(matMult(vec4(point), matrix));
+  return translatedPoint;
+}
 
-  return [x, y];
+function rotateVec2(point: Vec2, theta: number): Vec2 {
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+
+  // @todo: identity
+  let matrix: Mat4 = [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+  ];
+  // @todo: z rotation
+  matrix = [
+    [cos, -sin, 0.0, 0.0],
+    [sin, cos, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+  ];
+
+  // @todo: y rotation
+  // matrix = [
+  //   [cos, 0.0, sin, 0.0],
+  //   [0.0, 1.0, 0.0, 0.0],
+  //   [-sin, 0.0, cos, 0.0],
+  //   [0.0, 0.0, 0.0, 1.0],
+  // ];
+
+  // @todo: x rotation
+  // matrix = [
+  //   [1.0, 0.0, 0.0, 0.0],
+  //   [0.0, cos, -sin, 0.0],
+  //   [0.0, sin, cos, 0.0],
+  //   [0.0, 0.0, 0.0, 1.0],
+  // ];
+
+  const translatedPoint = vec2(matMult(vec4(point), matrix));
+  return translatedPoint;
 }
 
 function run() {
@@ -265,42 +362,25 @@ function run() {
   /* 3D */
 
   const triangle1 = new Triangle2D();
-  triangle1.aPos = [-1.0, 1.0];
-  triangle1.aColor = [1.0, 0.0, 0.0, 1.0];
-  triangle1.bPos = [1.0, 1.0];
-  triangle1.bColor = [0.0, 1.0, 0.0, 1.0];
-  triangle1.cPos = [1.0, -1.0];
-  triangle1.cColor = [0.0, 0.0, 1.0, 1.0];
-
-  triangle1.aPos = scaleVec2(triangle1.aPos, [0.5, 0.5]);
-  triangle1.bPos = scaleVec2(triangle1.bPos, [0.5, 0.5]);
-  triangle1.cPos = scaleVec2(triangle1.cPos, [0.5, 0.5]);
-
-  triangle1.aPos = translateVec2(triangle1.aPos, [-0.5, 0.5]);
-  triangle1.bPos = translateVec2(triangle1.bPos, [-0.5, 0.5]);
-  triangle1.cPos = translateVec2(triangle1.cPos, [-0.5, 0.5]);
+  triangle1.scale([0.5, 0.5]);
+  triangle1.translate([-0.5, 0.5]);
 
   const triangle1Vertices = triangle1.getVertices();
 
   const triangle2 = new Triangle2D();
-  triangle2.aPos = [-1.0, 1.0];
-  triangle2.aColor = [1.0, 0.0, 0.0, 1.0];
-  triangle2.bPos = [1.0, -1.0];
-  triangle2.bColor = [0.0, 1.0, 0.0, 1.0];
-  triangle2.cPos = [-1.0, -1.0];
-  triangle2.cColor = [0.0, 0.0, 1.0, 1.0];
+  triangle2.scale([0.5, 0.5]);
+  // triangle2.rotate(-Math.PI / 1.5);
+  triangle2.rotate(now / 1000);
+  // triangle2.translate([-0.5, 0.5]);
 
-  triangle2.aPos = scaleVec2(triangle2.aPos, [0.5, 0.5]);
-  triangle2.bPos = scaleVec2(triangle2.bPos, [0.5, 0.5]);
-  triangle2.cPos = scaleVec2(triangle2.cPos, [0.5, 0.5]);
-
-  triangle2.aPos = translateVec2(triangle2.aPos, [-0.5, 0.5]);
-  triangle2.bPos = translateVec2(triangle2.bPos, [-0.5, 0.5]);
-  triangle2.cPos = translateVec2(triangle2.cPos, [-0.5, 0.5]);
   const triangle2Vertices = triangle2.getVertices();
 
   const triangleList = new Float32Array(
-    [triangle1Vertices, triangle2Vertices].flat()
+    [
+      //
+      // triangle1Vertices,
+      triangle2Vertices,
+    ].flat()
   );
   drawTriangleList(triangleList);
 
