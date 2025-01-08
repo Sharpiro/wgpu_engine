@@ -1,8 +1,7 @@
 let fpsHistory: number[] = [];
 let time = performance.now();
 let clickState = false;
-// let mouseX = 0;
-// let mouseY = 0;
+let debugString = "";
 
 if (!navigator.gpu) {
   throw Error("WebGPU not supported.");
@@ -28,9 +27,9 @@ canvas.addEventListener("click", (event: any) => {
   const ndcX = (mouseX / canvas.width) * 2 - 1;
   const ndcY = -((mouseY / canvas.height) * 2 - 1);
 
-  console.log(
-    `Normalized Device Coordinates: (${ndcX.toFixed(2)}, ${ndcY.toFixed(2)})`
-  );
+  const canvasCoords = `(${mouseX.toFixed(2)}, ${mouseY.toFixed(2)})`;
+  const glCords = `(${ndcX.toFixed(2)}, ${ndcY.toFixed(2)})`;
+  console.log(`${canvasCoords}, ${glCords}`);
   clickState = !clickState;
 });
 
@@ -38,7 +37,13 @@ const shaders = `
 struct VertexOut {
   @builtin(position) position : vec4f,
   @location(0) color : vec4f
-}
+};
+
+struct OurStruct {
+  test_color: vec4f,
+};
+
+@group(0) @binding(0) var<uniform> ourStruct: OurStruct;
 
 @vertex
 fn vertex_main(@location(0) position: vec4f,
@@ -47,6 +52,7 @@ fn vertex_main(@location(0) position: vec4f,
   var output : VertexOut;
   output.position = position;
   output.color = color;
+  output.color = ourStruct.test_color;
 //   output.color = vec4(0, 1, 0, 0);
   return output;
 }
@@ -105,7 +111,6 @@ const pipelineDescriptor = {
 // @ts-expect-error @todo
 const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-// function doGpuStuff(x: number, y: number) {
 function drawTriangleList(triangleList: Float32Array) {
   context.configure({
     device: device,
@@ -142,10 +147,33 @@ function drawTriangleList(triangleList: Float32Array) {
   // @ts-expect-error @todo
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
+  const uniformBuffer = device.createBuffer({
+    size: 4 * 4,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+  const uniformValues = new Float32Array([0.0, 0.0, 1.0, 1.0]);
+  //   const bindGroupLayout = device.createBindGroupLayout({
+  //     entries: [
+  //       {
+  //         binding: 0,
+  //         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+  //         buffer: { type: "uniform" },
+  //       },
+  //     ],
+  //   });
+  const bindGroup = device.createBindGroup({
+    label: "triangle bind group",
+    // layout: bindGroupLayout,
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+  });
+  device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+
   passEncoder.setPipeline(renderPipeline);
+
+  passEncoder.setBindGroup(0, bindGroup);
   passEncoder.setVertexBuffer(0, vertexBuffer);
-  const triangleListLength = triangleList.length / 8;
-  passEncoder.draw(triangleListLength);
+  passEncoder.draw(triangleList.length / 8);
 
   passEncoder.end();
   device.queue.submit([commandEncoder.finish()]);
@@ -158,17 +186,6 @@ type Vec3 = [number, number, number];
 type Vec4 = [number, number, number, number];
 
 type Mat4 = [Vec4, Vec4, Vec4, Vec4];
-
-// type Vertex2D = {
-//   x: number;
-//   y: number;
-//   z: number;
-//   w: number;
-//   r: number;
-//   g: number;
-//   b: number;
-//   a: number;
-// };
 
 function vec2(): Vec2;
 function vec2(vec: Vec3): Vec2;
@@ -195,70 +212,96 @@ function vec4(vec?: Vec2 | Vec3): Vec4 {
   }
 }
 
+function getDistance2D(posA: Vec2, posB: Vec2): number {
+  return Math.sqrt((posA[0] - posB[0]) ** 2 + (posA[1] - posB[1]) ** 2);
+}
+
+function debug(vec: Vec2) {
+  return `(${vec[0].toFixed(2)}, ${vec[1].toFixed(2)})`;
+}
+
 class Triangle2D {
-  aPos: Vec2 = vec2();
-  aColor: Vec4 = vec4();
-  bPos: Vec2 = vec2();
-  bColor: Vec4 = vec4();
-  cPos: Vec2 = vec2();
-  cColor: Vec4 = vec4();
+  posA: Vec2 = vec2();
+  colorA: Vec4 = vec4();
+  posB: Vec2 = vec2();
+  colorB: Vec4 = vec4();
+  posC: Vec2 = vec2();
+  colorC: Vec4 = vec4();
 
   constructor() {
-    this.aPos = [-1.0, 1.0];
-    this.aColor = [1.0, 0.0, 0.0, 1.0];
-    this.bPos = [1.0, 1.0];
-    this.bColor = [0.0, 1.0, 0.0, 1.0];
-    this.cPos = [1.0, -1.0];
-    this.cColor = [0.0, 0.0, 1.0, 1.0];
+    this.posA = [-1.0, 1.0];
+    this.colorA = [1.0, 0.0, 0.0, 1.0];
+    this.posB = [1.0, 1.0];
+    this.colorB = [0.0, 1.0, 0.0, 1.0];
+    this.posC = [1.0, -1.0];
+    this.colorC = [0.0, 0.0, 1.0, 1.0];
   }
 
   scale(scale: Vec2) {
-    this.aPos = scaleVec2(this.aPos, scale);
-    this.bPos = scaleVec2(this.bPos, scale);
-    this.cPos = scaleVec2(this.cPos, scale);
+    this.posA = scaleVec2(this.posA, scale);
+    this.posB = scaleVec2(this.posB, scale);
+    this.posC = scaleVec2(this.posC, scale);
   }
 
   translate(translation: Vec2) {
-    this.aPos = translateVec2(this.aPos, translation);
-    this.bPos = translateVec2(this.bPos, translation);
-    this.cPos = translateVec2(this.cPos, translation);
+    this.posA = translateVec2(this.posA, translation);
+    this.posB = translateVec2(this.posB, translation);
+    this.posC = translateVec2(this.posC, translation);
   }
 
   rotate(theta: number) {
-    this.aPos = rotateVec2(this.aPos, theta);
-    this.bPos = rotateVec2(this.bPos, theta);
-    this.cPos = rotateVec2(this.cPos, theta);
+    this.posA = rotateVec2(this.posA, theta);
+    this.posB = rotateVec2(this.posB, theta);
+    this.posC = rotateVec2(this.posC, theta);
   }
 
   getVertices(): number[] {
     return [
-      ...this.aPos,
+      ...this.posA,
       0,
       1,
-      ...this.aColor,
-      ...this.bPos,
+      ...this.colorA,
+      ...this.posB,
       0,
       1,
-      ...this.bColor,
-      ...this.cPos,
+      ...this.colorB,
+      ...this.posC,
       0,
       1,
-      ...this.cColor,
+      ...this.colorC,
     ];
   }
 }
 
-// class Square {
-//   x: number;
-//   y: number;
-//   width: number;
+class Square {
+  triangleA: Triangle2D;
+  triangleB: Triangle2D;
 
-//   constructor(x: number, y: number, width: number) {
-//     this.x = x;
-//     this.y = y;
-//     this.width = width;
-//   }
-// }
+  constructor() {
+    const SCALE: Vec2 = [0.25, 0.25];
+
+    this.triangleA = new Triangle2D();
+
+    this.triangleB = new Triangle2D();
+    this.triangleB.rotate(Math.PI);
+
+    this.scale(SCALE);
+  }
+
+  translate(vec: Vec2) {
+    this.triangleA.translate(vec);
+    this.triangleB.translate(vec);
+  }
+
+  scale(vec: Vec2) {
+    this.triangleA.scale(vec);
+    this.triangleB.scale(vec);
+  }
+
+  getVertices(): number[] {
+    return [...this.triangleA.getVertices(), ...this.triangleB.getVertices()];
+  }
+}
 
 function matMult(point: Vec4, matrix: Mat4): Vec4 {
   const vecResult = vec4();
@@ -358,28 +401,38 @@ function run() {
   context2d.fillStyle = "white";
   context2d.fillText(`clicked: ${clickState}`, 10, 25);
   context2d.fillText(`fps: ${fpsDisplay}`, 10, 50);
+  context2d.fillText(`distance: ${debugString}`, 10, 75);
 
   /* 3D */
 
-  const triangle1 = new Triangle2D();
-  triangle1.scale([0.5, 0.5]);
-  triangle1.translate([-0.5, 0.5]);
-
-  const triangle1Vertices = triangle1.getVertices();
-
-  const triangle2 = new Triangle2D();
-  triangle2.scale([0.5, 0.5]);
-  // triangle2.rotate(-Math.PI / 1.5);
-  triangle2.rotate(now / 1000);
-  // triangle2.translate([-0.5, 0.5]);
-
-  const triangle2Vertices = triangle2.getVertices();
+  const square1 = new Square();
+  square1.translate([-0.75, 0.75]);
+  const square2 = new Square();
+  square2.translate([-0.25, 0.75]);
+  const square3 = new Square();
+  square3.translate([0.25, 0.75]);
+  const square4 = new Square();
+  square4.translate([0.75, 0.75]);
+  const square5 = new Square();
+  square5.translate([-0.75, 0.25]);
+  const square6 = new Square();
+  square6.translate([-0.25, 0.25]);
+  const square7 = new Square();
+  square7.translate([0.25, 0.25]);
+  const square8 = new Square();
+  square8.translate([0.75, 0.25]);
 
   const triangleList = new Float32Array(
     [
       //
-      // triangle1Vertices,
-      triangle2Vertices,
+      square1.getVertices(),
+      square2.getVertices(),
+      square3.getVertices(),
+      square4.getVertices(),
+      square5.getVertices(),
+      square6.getVertices(),
+      square7.getVertices(),
+      square8.getVertices(),
     ].flat()
   );
   drawTriangleList(triangleList);
