@@ -1,3 +1,7 @@
+import { shaders as shaderCode } from "./shader_code";
+
+const BOARD_X = 4;
+const BOARD_Y = 4;
 let fpsHistory: number[] = [];
 let time = performance.now();
 let clickState = false;
@@ -33,37 +37,6 @@ canvas.addEventListener("click", (event: any) => {
   clickState = !clickState;
 });
 
-const shaders = `
-struct VertexOut {
-  @builtin(position) position : vec4f,
-  @location(0) color : vec4f
-};
-
-struct OurStruct {
-  test_color: vec4f,
-};
-
-@group(0) @binding(0) var<uniform> ourStruct: OurStruct;
-
-@vertex
-fn vertex_main(@location(0) position: vec4f,
-               @location(1) color: vec4f) -> VertexOut
-{
-  var output : VertexOut;
-  output.position = position;
-  output.color = color;
-  output.color = ourStruct.test_color;
-//   output.color = vec4(0, 1, 0, 0);
-  return output;
-}
-
-@fragment
-fn fragment_main(fragData: VertexOut) -> @location(0) vec4f
-{
-  return fragData.color;
-}
-`;
-
 const vertexBuffers = [
   {
     attributes: [
@@ -84,7 +57,7 @@ const vertexBuffers = [
 ];
 
 const shaderModule = device.createShaderModule({
-  code: shaders,
+  code: shaderCode,
 });
 
 const pipelineDescriptor = {
@@ -111,7 +84,10 @@ const pipelineDescriptor = {
 // @ts-expect-error @todo
 const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-function drawTriangleList(triangleList: Float32Array) {
+function drawTriangleList(
+  triangleList: Float32Array,
+  triangleTransformations: Float32Array
+) {
   context.configure({
     device: device,
     format: navigator.gpu.getPreferredCanvasFormat(),
@@ -147,31 +123,30 @@ function drawTriangleList(triangleList: Float32Array) {
   // @ts-expect-error @todo
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
-  const uniformBuffer = device.createBuffer({
-    size: 4 * 4,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-  const uniformValues = new Float32Array([0.0, 0.0, 1.0, 1.0]);
-  //   const bindGroupLayout = device.createBindGroupLayout({
-  //     entries: [
-  //       {
-  //         binding: 0,
-  //         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-  //         buffer: { type: "uniform" },
-  //       },
-  //     ],
-  //   });
-  const bindGroup = device.createBindGroup({
-    label: "triangle bind group",
-    // layout: bindGroupLayout,
-    layout: renderPipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
-  });
-  device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+  if (true) {
+    const uniformValues = new Float32Array(
+      [
+        [4.0, 0.0, 0.0, 0.0], // @note: requires 16 byte padding!
+        [0.0, 0.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+      ].flat()
+    );
+    const uniformBuffer = device.createBuffer({
+      size: uniformValues.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    const bindGroup = device.createBindGroup({
+      label: "triangle bind group",
+      layout: renderPipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    });
+    device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+    passEncoder.setBindGroup(0, bindGroup);
+  }
 
   passEncoder.setPipeline(renderPipeline);
-
-  passEncoder.setBindGroup(0, bindGroup);
   passEncoder.setVertexBuffer(0, vertexBuffer);
   passEncoder.draw(triangleList.length / 8);
 
@@ -212,6 +187,25 @@ function vec4(vec?: Vec2 | Vec3): Vec4 {
   }
 }
 
+function mat4(diagonal: number): Mat4;
+function mat4(diagonal: number | undefined): Mat4 {
+  if (diagonal != undefined) {
+    return [
+      [diagonal, 0.0, 0.0, 0.0],
+      [0.0, diagonal, 0.0, 0.0],
+      [0.0, 0.0, diagonal, 0.0],
+      [0.0, 0.0, 0.0, diagonal],
+    ];
+  }
+
+  return [
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0],
+  ];
+}
+
 function getDistance2D(posA: Vec2, posB: Vec2): number {
   return Math.sqrt((posA[0] - posB[0]) ** 2 + (posA[1] - posB[1]) ** 2);
 }
@@ -219,6 +213,30 @@ function getDistance2D(posA: Vec2, posB: Vec2): number {
 function debug(vec: Vec2) {
   return `(${vec[0].toFixed(2)}, ${vec[1].toFixed(2)})`;
 }
+
+// class Board {
+//   x: number = 4;
+//   y: number = 4;
+// }
+
+class Triangle2DH {
+  x: number;
+  y: number;
+  transformation: Mat4;
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    this.transformation = mat4(1.0);
+  }
+}
+
+// class Triangle2DTemp {
+//   transformation: Mat4;
+//   constructor(transformation: Mat4 = mat4()) {
+//     this.transformation = transformation;
+//   }
+// }
 
 class Triangle2D {
   posA: Vec2 = vec2();
@@ -347,15 +365,8 @@ function rotateVec2(point: Vec2, theta: number): Vec2 {
   const cos = Math.cos(theta);
   const sin = Math.sin(theta);
 
-  // @todo: identity
-  let matrix: Mat4 = [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0],
-  ];
   // @todo: z rotation
-  matrix = [
+  const matrix: Mat4 = [
     [cos, -sin, 0.0, 0.0],
     [sin, cos, 0.0, 0.0],
     [0.0, 0.0, 1.0, 0.0],
@@ -405,37 +416,40 @@ function run() {
 
   /* 3D */
 
-  const square1 = new Square();
-  square1.translate([-0.75, 0.75]);
-  const square2 = new Square();
-  square2.translate([-0.25, 0.75]);
-  const square3 = new Square();
-  square3.translate([0.25, 0.75]);
-  const square4 = new Square();
-  square4.translate([0.75, 0.75]);
-  const square5 = new Square();
-  square5.translate([-0.75, 0.25]);
-  const square6 = new Square();
-  square6.translate([-0.25, 0.25]);
-  const square7 = new Square();
-  square7.translate([0.25, 0.25]);
-  const square8 = new Square();
-  square8.translate([0.75, 0.25]);
+  // const square1 = new Square();
+  // const obj1x = new Triangle2DH(1, 1);
+  const obj1 = new Triangle2D();
+  // square1.translate([-0.75, 0.75]);
+  // square1.translate([0.75, -0.75]);
+  // const square2 = new Square();
+  // square2.translate([-0.25, 0.75]);
+  // const square3 = new Square();
+  // square3.translate([0.25, 0.75]);
+  // const square4 = new Square();
+  // square4.translate([0.75, 0.75]);
+  // const square5 = new Square();
+  // square5.translate([-0.75, 0.25]);
+  // const square6 = new Square();
+  // square6.translate([-0.25, 0.25]);
+  // const square7 = new Square();
+  // square7.translate([0.25, 0.25]);
+  // const square8 = new Square();
+  // square8.translate([0.75, 0.25]);
 
   const triangleList = new Float32Array(
     [
-      //
-      square1.getVertices(),
-      square2.getVertices(),
-      square3.getVertices(),
-      square4.getVertices(),
-      square5.getVertices(),
-      square6.getVertices(),
-      square7.getVertices(),
-      square8.getVertices(),
+      obj1.getVertices(),
+      // square2.getVertices(),
+      // square3.getVertices(),
+      // square4.getVertices(),
+      // square5.getVertices(),
+      // square6.getVertices(),
+      // square7.getVertices(),
+      // square8.getVertices(),
     ].flat()
   );
-  drawTriangleList(triangleList);
+  const triangleTransformations = new Float32Array();
+  drawTriangleList(triangleList, triangleTransformations);
 
   time = now;
   requestAnimationFrame(run);
