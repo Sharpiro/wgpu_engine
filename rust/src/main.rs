@@ -23,6 +23,7 @@ struct Uniforms {
 }
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
+    dbg!("is we getting a window");
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -222,9 +223,9 @@ pub fn main() {
     let window_attributes = Window::default_attributes()
         .with_inner_size(LogicalSize::new(800, 800))
         .with_title("Blocks")
-        .with_visible(false)
-        .with_active(false)
-        .with_position(LogicalPosition { x: 1000, y: 1000 });
+        .with_visible(true)
+        .with_active(false);
+    // .with_position(LogicalPosition { x: 1000, y: 1000 });
     #[cfg(target_arch = "wasm32")]
     {
         use wasm_bindgen::JsCast;
