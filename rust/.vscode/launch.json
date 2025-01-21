@@ -1,0 +1,15 @@
+{
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "cargo run -p rust_wgpu",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/target/debug/rust_wgpu",
+      "args": [],
+      "sourceMap": {},
+      "sourceLanguages": ["rust"],
+      "preLaunchTask": "rust: cargo build"
+    }
+  ]
+}
