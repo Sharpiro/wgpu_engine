@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <format>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <print>
 #include <vector>
 #include <webgpu/webgpu.h>

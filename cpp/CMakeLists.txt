@@ -9,15 +9,26 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(blocks)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+include(FetchContent)
 
-include_directories("wgpu/include")
-include_directories("magic_enum")
-link_directories("wgpu/lib")
-add_executable(temp_exe main.cpp)
+FetchContent_Declare(
+  magic_enum
+  GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+  GIT_TAG        v0.9.7
+)
+FetchContent_MakeAvailable(magic_enum)
+
+add_executable(block main.cpp)
+target_include_directories(block PRIVATE wgpu/include)
+target_include_directories(block PRIVATE ${magic_enum_SOURCE_DIR}/include)
+target_link_directories(block PRIVATE wgpu/lib)
+
+message(STATUS "LOG: ${magic_enum_SOURCE_DIR}")
 
 if (WIN32)
     target_link_libraries(
-        temp_exe 
+        block 
         wgpu_native.lib 
         wgpu_native.dll 
         wgpu_native.dll.lib 
@@ -29,6 +40,6 @@ if (WIN32)
     )
 else()
     target_link_libraries(
-        temp_exe 
+        block 
     )
 endif()
