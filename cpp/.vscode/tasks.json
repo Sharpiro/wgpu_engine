@@ -7,7 +7,7 @@
     },
     {
       "label": "run",
-      "command": "./build/temp_exe.exe",
+      "command": "./build/block.exe",
       "dependsOn": "build",
       "type": "shell"
     },

@@ -19,10 +19,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(magic_enum)
 
-add_executable(block main.cpp)
+add_executable(block main.cpp glfw_wgpu.cpp)
 target_include_directories(block PRIVATE wgpu/include)
+target_include_directories(block PRIVATE glfw/include)
 target_include_directories(block PRIVATE ${magic_enum_SOURCE_DIR}/include)
 target_link_directories(block PRIVATE wgpu/lib)
+target_link_directories(block PRIVATE glfw/lib-vc2022)
 
 message(STATUS "LOG: ${magic_enum_SOURCE_DIR}")
 
@@ -37,6 +39,7 @@ if (WIN32)
         ntdll
         opengl32
         d3dcompiler
+        glfw3
     )
 else()
     target_link_libraries(

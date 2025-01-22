@@ -5,7 +5,7 @@
       "name": "(Windows) Launch",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/temp_exe.exe",
+      "program": "${workspaceFolder}/build/block.exe",
       "args": [],
       "stopAtEntry": false,
       "environment": [],
