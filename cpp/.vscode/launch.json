@@ -8,9 +8,8 @@
       "program": "${workspaceFolder}/build/temp_exe.exe",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${fileDirname}",
       "environment": [],
-      "console": "internalConsole",
+      "console": "integratedTerminal",
       "preLaunchTask": "build"
     }
   ]

@@ -2,3 +2,4 @@ CompileFlags:
   Add:
     - -std=c++23
     - -Iwgpu/include
+    - -Imagic_enum

@@ -6,6 +6,12 @@
       "type": "shell"
     },
     {
+      "label": "run",
+      "command": "./build/temp_exe.exe",
+      "dependsOn": "build",
+      "type": "shell"
+    },
+    {
       "type": "cppbuild",
       "label": "C/C++: cl.exe build active file",
       "command": "cl.exe",
