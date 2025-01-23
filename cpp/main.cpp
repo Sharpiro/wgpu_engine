@@ -1,5 +1,6 @@
-#include "./glfw_wgpu copy.hpp"
+#include "./glfw_wgpu.hpp"
 #include <GLFW/glfw3.h>
+#include <Windows.h>
 #include <cstdio>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
@@ -19,7 +20,7 @@ WGPUAdapter get_adapter(WGPUInstance instance, WGPUSurface surface) {
         *user_data = adapter;
     };
     auto options = WGPURequestAdapterOptions{
-        // .compatibleSurface = surface,
+        .compatibleSurface = surface,
     };
     wgpuInstanceRequestAdapter(instance, &options, callback, &adapter);
     return adapter;
@@ -47,29 +48,33 @@ WGPUDevice get_device(WGPUAdapter adapter) {
     return device;
 }
 
-void error_callback(int error_code, const char *description) {
-    println(stderr, "glfw err {}, {}", error_code, description);
-}
-
-// Window close callback function
-void windowCloseCallback(GLFWwindow *window) {
-    println("Window close event detected");
+LONG WINAPI VectoredHandler(PEXCEPTION_POINTERS) {
+    // if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
+    //     EXCEPTION_ACCESS_VIOLATION) {
+    //     // std::cerr << "Access violation occurred." << std::endl;
+    // }
+    println(stderr, "fatal error");
+    std::exit(EXIT_FAILURE);
+    // return EXCEPTION_CONTINUE_SEARCH;
 }
 
 int main() {
     /* Init */
     println("starting");
 
+    AddVectoredExceptionHandler(1, VectoredHandler);
+
     WGPUInstanceDescriptor desc = {};
-    WGPUInstance instance = nullptr;
-    instance = wgpuCreateInstance(&desc);
+    auto instance = wgpuCreateInstance(&desc);
     if (!instance) {
         println(stderr, "expected instance");
         return 1;
     }
 
     glfwInit();
-    glfwSetErrorCallback(error_callback);
+    glfwSetErrorCallback([](int error_code, const char *description) {
+        println(stderr, "glfw err {}, {}", error_code, description);
+    });
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     auto window = glfwCreateWindow(600, 600, "Block", nullptr, nullptr);
@@ -77,18 +82,23 @@ int main() {
         println("window failed to open properly");
         return 1;
     }
-    glfwPollEvents();
-    glfwSetWindowCloseCallback(window, windowCloseCallback);
 
+    glfwSetWindowCloseCallback(window, [](GLFWwindow *) {
+        println("window close event detected");
+    });
+
+    println("getting surface...");
     auto surface = glfwCreateWindowWGPUSurface(instance, window);
+    println("getting surface...done");
 
-    // auto adapter = get_adapter(instance, surface);
-    auto adapter = get_adapter(instance, nullptr);
+    println("getting adapter...");
+    auto adapter = get_adapter(instance, surface);
+    println("getting adapter...done");
     if (!adapter) {
         println(stderr, "expected adapter");
         return 1;
     }
-    // wgpuInstanceRelease(instance);
+    wgpuInstanceRelease(instance);
 
     size_t adapter_feature_count =
         wgpuAdapterEnumerateFeatures(adapter, nullptr);
@@ -96,10 +106,10 @@ int main() {
     auto adapter_features = vector<WGPUFeatureName>(adapter_feature_count);
     wgpuAdapterEnumerateFeatures(adapter, adapter_features.data());
 
-    WGPUAdapterInfo adapter_info;
+    WGPUAdapterInfo adapter_info = {};
     wgpuAdapterGetInfo(adapter, &adapter_info);
     println(
-        "device: {}\nbackend: {}\nadapter: {}",
+        "{}, {}, {}",
         adapter_info.device,
         magic_enum::enum_name(adapter_info.backendType),
         magic_enum::enum_name(adapter_info.adapterType)
@@ -110,15 +120,19 @@ int main() {
         println(stderr, "expected device");
         return 1;
     }
-    // wgpuAdapterRelease(adapter);
+    wgpuAdapterRelease(adapter);
 
+    println("getting features...");
     size_t device_feature_count = wgpuDeviceEnumerateFeatures(device, nullptr);
     println("device features: {}", device_feature_count);
     auto device_features = vector<WGPUFeatureName>(device_feature_count);
     wgpuDeviceEnumerateFeatures(device, device_features.data());
+    println("getting features...done");
 
-    WGPUSupportedLimits limits;
+    println("getting limits...");
+    WGPUSupportedLimits limits = {};
     wgpuDeviceGetLimits(device, &limits);
+    println("getting limits...done");
 
     // @todo: device errors, changed? push/pop error scope?
 
@@ -143,10 +157,7 @@ int main() {
     // };
     // wgpuDeviceCreateShaderModule(device, &shader_descriptor);
 
-    // glfwInit();
-    // glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    // auto window = glfwCreateWindow(600, 600, "Block", nullptr, nullptr);
+    println("running...");
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
     }
@@ -154,8 +165,8 @@ int main() {
     /* Cleanup */
 
     // wgpuQueueRelease(queue);
-    // glfwDestroyWindow(window);
-    // glfwTerminate();
-    // wgpuDeviceRelease(device);
+    wgpuDeviceRelease(device);
+    glfwDestroyWindow(window);
+    glfwTerminate();
     println("done");
 }
