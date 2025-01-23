@@ -1,6 +1,6 @@
 #include "./glfw_wgpu.hpp"
 #include <GLFW/glfw3.h>
-#include <Windows.h>
+// #include <Windows.h>
 #include <cstdio>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
@@ -52,10 +52,12 @@ int main() {
     /* Init */
     println("starting");
 
-    AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS) -> LONG {
-        println(stderr, "fatal error");
-        std::exit(EXIT_FAILURE);
-    });
+    // @todo: windows-only
+
+    // AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS) -> LONG {
+    //     println(stderr, "fatal error");
+    //     std::exit(EXIT_FAILURE);
+    // });
 
     WGPUInstanceDescriptor desc = {};
     auto instance = wgpuCreateInstance(&desc);
@@ -65,6 +67,19 @@ int main() {
     }
 
     glfwInit();
+    auto platform = glfwGetPlatform();
+    if (platform == GLFW_PLATFORM_WAYLAND) {
+        println("Using Wayland backend");
+    } else if (platform == GLFW_PLATFORM_X11) {
+        println("Using X11 backend");
+    }
+    auto x11_support = glfwPlatformSupported(GLFW_PLATFORM_X11);
+    auto wayland_support = glfwPlatformSupported(GLFW_PLATFORM_WAYLAND);
+    auto windows_support = glfwPlatformSupported(GLFW_PLATFORM_WIN32);
+    println("x11     support: {}", (bool)x11_support);
+    println("wayland support: {}", (bool)wayland_support);
+    println("windows support: {}", (bool)windows_support);
+
     glfwSetErrorCallback([](int error_code, const char *description) {
         println(stderr, "glfw err {}, {}", error_code, description);
     });

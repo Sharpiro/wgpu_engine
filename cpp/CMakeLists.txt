@@ -4,6 +4,10 @@ set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Wextra")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wpedantic -Wextra")
+if (UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --gcc-toolchain=/usr/local")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --gcc-toolchain=/usr/local")
+endif()
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,5 +48,7 @@ if (WIN32)
 else()
     target_link_libraries(
         block 
+        glfw3
+        wgpu_native
     )
 endif()

@@ -1,5 +1,0 @@
-CompileFlags:
-  Add:
-    - -std=c++23
-    # - -Iglfw/include
-    # - -Iwgpu/include
