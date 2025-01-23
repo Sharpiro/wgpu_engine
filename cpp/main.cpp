@@ -48,21 +48,14 @@ WGPUDevice get_device(WGPUAdapter adapter) {
     return device;
 }
 
-LONG WINAPI VectoredHandler(PEXCEPTION_POINTERS) {
-    // if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
-    //     EXCEPTION_ACCESS_VIOLATION) {
-    //     // std::cerr << "Access violation occurred." << std::endl;
-    // }
-    println(stderr, "fatal error");
-    std::exit(EXIT_FAILURE);
-    // return EXCEPTION_CONTINUE_SEARCH;
-}
-
 int main() {
     /* Init */
     println("starting");
 
-    AddVectoredExceptionHandler(1, VectoredHandler);
+    AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS) -> LONG {
+        println(stderr, "fatal error");
+        std::exit(EXIT_FAILURE);
+    });
 
     WGPUInstanceDescriptor desc = {};
     auto instance = wgpuCreateInstance(&desc);
