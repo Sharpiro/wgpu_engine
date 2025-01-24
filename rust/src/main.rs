@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 use wgpu::{util::DeviceExt, BindGroupEntry, BufferUsages};
 use winit::{
-    dpi::{LogicalPosition, LogicalSize},
+    dpi::LogicalSize,
     event::{Event, WindowEvent},
     event_loop::EventLoop,
     window::Window,

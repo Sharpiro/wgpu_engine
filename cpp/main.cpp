@@ -10,6 +10,9 @@
 
 using namespace std;
 
+constexpr size_t WIDTH = 600;
+constexpr size_t HEIGHT = 600;
+
 WGPUAdapter get_adapter(WGPUInstance instance, WGPUSurface surface) {
     WGPUAdapter adapter = nullptr;
     auto callback = [](WGPURequestAdapterStatus,
@@ -43,6 +46,16 @@ WGPUDevice get_device(WGPUAdapter adapter) {
     auto descriptor = WGPUDeviceDescriptor{
         .label = "device_1",
         .defaultQueue = {.label = "queue_1"},
+        .deviceLostCallback =
+            [](WGPUDeviceLostReason reason, char const *message, void *) {
+                println(
+                    "Uncaptured device error: type {}",
+                    magic_enum::enum_name(reason)
+                );
+                if (message) {
+                    println("{}", message);
+                }
+            },
     };
     wgpuAdapterRequestDevice(adapter, &descriptor, callback, &device);
     return device;
@@ -58,13 +71,6 @@ int main() {
     //     println(stderr, "fatal error");
     //     std::exit(EXIT_FAILURE);
     // });
-
-    WGPUInstanceDescriptor desc = {};
-    auto instance = wgpuCreateInstance(&desc);
-    if (!instance) {
-        println(stderr, "expected instance");
-        return 1;
-    }
 
     glfwInit();
     auto platform = glfwGetPlatform();
@@ -85,7 +91,7 @@ int main() {
     });
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    auto window = glfwCreateWindow(600, 600, "Block", nullptr, nullptr);
+    auto window = glfwCreateWindow(WIDTH, HEIGHT, "Block", nullptr, nullptr);
     if (!window || glfwWindowShouldClose(window)) {
         println("window failed to open properly");
         return 1;
@@ -94,6 +100,13 @@ int main() {
     glfwSetWindowCloseCallback(window, [](GLFWwindow *) {
         println("window close event detected");
     });
+
+    WGPUInstanceDescriptor desc = {};
+    auto instance = wgpuCreateInstance(&desc);
+    if (!instance) {
+        println(stderr, "expected instance");
+        return 1;
+    }
 
     println("getting surface...");
     auto surface = glfwCreateWindowWGPUSurface(instance, window);
@@ -128,7 +141,6 @@ int main() {
         println(stderr, "expected device");
         return 1;
     }
-    wgpuAdapterRelease(adapter);
 
     println("getting features...");
     size_t device_feature_count = wgpuDeviceEnumerateFeatures(device, nullptr);
@@ -142,28 +154,94 @@ int main() {
     wgpuDeviceGetLimits(device, &limits);
     println("getting limits...done");
 
-    // @todo: device errors, changed? push/pop error scope?
-
-    // auto onDeviceError =
-    //     [](WGPUErrorType type, char const *message, void * /* pUserData */) {
-    //         println(
-    //             "Uncaptured device error: type {}",
-    //             magic_enum::enum_name(type)
-    //         );
-    //         if (message) {
-    //             println("{}", message);
-    //         }
-    //     };
-    // wgpuDeviceSetUncapturedErrorCallback(
-    //     device, onDeviceError, nullptr /* pUserData */
-    // );
-
-    // auto queue = wgpuDeviceGetQueue(device);
+    auto queue = wgpuDeviceGetQueue(device);
+    wgpuQueueOnSubmittedWorkDone(
+        queue,
+        [](WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void *) {
+            println("queued work done {}", magic_enum::enum_name(status));
+        },
+        nullptr
+    );
 
     // auto shader_descriptor = WGPUShaderModuleDescriptor{
     //     .label = "hi",
     // };
     // wgpuDeviceCreateShaderModule(device, &shader_descriptor);
+
+    WGPUSurfaceCapabilities capabilities = {};
+    wgpuSurfaceGetCapabilities(surface, adapter, &capabilities);
+    WGPUSurfaceConfiguration surface_config = {
+        .device = device,
+        .format = capabilities.formats[0],
+        .usage = WGPUTextureUsage_RenderAttachment,
+        .alphaMode = WGPUCompositeAlphaMode_Auto,
+        .width = WIDTH,
+        .height = HEIGHT,
+        .presentMode = WGPUPresentMode_Fifo,
+    };
+
+    wgpuAdapterRelease(adapter);
+    wgpuSurfaceConfigure(surface, &surface_config);
+
+    WGPUSurfaceTexture surface_texture = {};
+    wgpuSurfaceGetCurrentTexture(surface, &surface_texture);
+    WGPUTextureViewDescriptor tv_descriptor = {
+        .nextInChain = nullptr,
+        .label = "Surface texture view",
+        .format = wgpuTextureGetFormat(surface_texture.texture),
+        .dimension = WGPUTextureViewDimension_2D,
+        .baseMipLevel = 0,
+        .mipLevelCount = 1,
+        .baseArrayLayer = 0,
+        .arrayLayerCount = 1,
+        .aspect = WGPUTextureAspect_All,
+
+    };
+    auto texture_view =
+        wgpuTextureCreateView(surface_texture.texture, &tv_descriptor);
+
+    WGPUCommandEncoderDescriptor command_encoder_desc = {
+        .nextInChain = nullptr,
+        .label = "My command encoder",
+    };
+    auto command_encoder =
+        wgpuDeviceCreateCommandEncoder(device, &command_encoder_desc);
+
+    WGPURenderPassColorAttachment renderPassColorAttachment = {
+        .view = texture_view,
+        .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+        .resolveTarget = nullptr,
+        .loadOp = WGPULoadOp_Clear,
+        .storeOp = WGPUStoreOp_Store,
+        .clearValue = WGPUColor{0.0, 0.0, 0.0, 1.0},
+    };
+    WGPURenderPassDescriptor renderPassDesc = {
+        .colorAttachmentCount = 1,
+        .colorAttachments = &renderPassColorAttachment,
+        .depthStencilAttachment = nullptr,
+        .timestampWrites = nullptr,
+    };
+    WGPURenderPassEncoder renderPass =
+        wgpuCommandEncoderBeginRenderPass(command_encoder, &renderPassDesc);
+    wgpuRenderPassEncoderEnd(renderPass);
+    wgpuRenderPassEncoderRelease(renderPass);
+
+    WGPUCommandBufferDescriptor command_buffer_descriptor = {
+        .nextInChain = nullptr,
+        .label = "Command buffer",
+    };
+    auto command =
+        wgpuCommandEncoderFinish(command_encoder, &command_buffer_descriptor);
+    wgpuCommandEncoderRelease(command_encoder);
+
+    println("submitting command...");
+    wgpuQueueSubmit(queue, 1, &command);
+    wgpuCommandBufferRelease(command);
+    println("submitting command...done");
+
+    println("presenting surface...");
+    wgpuSurfacePresent(surface);
+    println("presenting surface...done");
 
     println("running...");
     while (!glfwWindowShouldClose(window)) {
@@ -172,8 +250,11 @@ int main() {
 
     /* Cleanup */
 
-    // wgpuQueueRelease(queue);
+    wgpuTextureViewRelease(texture_view);
+    wgpuTextureRelease(surface_texture.texture);
+    wgpuQueueRelease(queue);
     wgpuDeviceRelease(device);
+    wgpuSurfaceRelease(surface);
     glfwDestroyWindow(window);
     glfwTerminate();
     println("done");
