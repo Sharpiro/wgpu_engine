@@ -162,16 +162,12 @@ int main() {
         nullptr
     );
 
-    // auto shader_descriptor = WGPUShaderModuleDescriptor{
-    //     .label = "hi",
-    // };
-    // wgpuDeviceCreateShaderModule(device, &shader_descriptor);
-
     WGPUSurfaceCapabilities capabilities = {};
     wgpuSurfaceGetCapabilities(surface, adapter, &capabilities);
+    auto texture_format = capabilities.formats[0];
     WGPUSurfaceConfiguration surface_config = {
         .device = device,
-        .format = capabilities.formats[0],
+        .format = texture_format,
         .usage = WGPUTextureUsage_RenderAttachment,
         .alphaMode = WGPUCompositeAlphaMode_Auto,
         .width = WIDTH,
@@ -222,6 +218,90 @@ int main() {
     };
     WGPURenderPassEncoder renderPass =
         wgpuCommandEncoderBeginRenderPass(command_encoder, &renderPassDesc);
+
+    const char *shader_code = R"(
+    @vertex
+    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
+        var p = vec2f(0.0, 0.0);
+        if (in_vertex_index == 0u) {
+            p = vec2f(-0.5, -0.5);
+        } else if (in_vertex_index == 1u) {
+            p = vec2f(0.5, -0.5);
+        } else {
+            p = vec2f(0.0, 0.5);
+        }
+        return vec4f(p, 0.0, 1.0);
+    }
+    
+    @fragment
+    fn fs_main() -> @location(0) vec4f {
+        return vec4f(0.0, 1.0, 0.0, 1.0);
+    } 
+)";
+
+    WGPUShaderModuleWGSLDescriptor shader_code_desc = {
+        .chain =
+            {
+                .sType = WGPUSType_ShaderModuleWGSLDescriptor,
+            },
+        .code = shader_code,
+    };
+    auto shader_descriptor = WGPUShaderModuleDescriptor{
+        .nextInChain = &shader_code_desc.chain,
+    };
+    auto shader_module =
+        wgpuDeviceCreateShaderModule(device, &shader_descriptor);
+
+    WGPUBlendState blend_state = {
+        .color =
+            {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_SrcAlpha,
+                .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
+            },
+        .alpha =
+            {
+                .operation = WGPUBlendOperation_Add,
+                .srcFactor = WGPUBlendFactor_Zero,
+                .dstFactor = WGPUBlendFactor_One,
+            },
+    };
+    WGPUColorTargetState color_target = {
+        .format = texture_format,
+        .blend = &blend_state,
+        .writeMask = WGPUColorWriteMask_All,
+    };
+    WGPUFragmentState fragment_state{
+        .module = shader_module,
+        .entryPoint = "fs_main",
+        .targetCount = 1,
+        .targets = &color_target,
+    };
+    WGPURenderPipelineDescriptor pipelineDesc = {
+        .vertex =
+            {
+                .module = shader_module,
+                .entryPoint = "vs_main",
+            },
+        .primitive =
+            {
+                .topology = WGPUPrimitiveTopology_TriangleList,
+                .stripIndexFormat = WGPUIndexFormat_Undefined,
+                .frontFace = WGPUFrontFace_CCW,
+                .cullMode = WGPUCullMode_None,
+            },
+        .multisample =
+            {
+                .count = 1,
+                .mask = ~0u,
+                .alphaToCoverageEnabled = false,
+            },
+        .fragment = &fragment_state,
+    };
+    WGPURenderPipeline pipeline =
+        wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
+    wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
+    wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
     wgpuRenderPassEncoderEnd(renderPass);
     wgpuRenderPassEncoderRelease(renderPass);
 
