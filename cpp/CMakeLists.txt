@@ -33,6 +33,7 @@ target_link_directories(block PRIVATE glfw/lib-vc2022)
 message(STATUS "LOG: ${magic_enum_SOURCE_DIR}")
 
 if (WIN32)
+    add_definitions(-DWINDOWS)
     target_link_libraries(
         block 
         wgpu_native.lib 
@@ -46,6 +47,7 @@ if (WIN32)
         glfw3
     )
 else()
+    add_definitions(-DLINUX)
     target_link_libraries(
         block 
         glfw3

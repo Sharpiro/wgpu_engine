@@ -1,6 +1,5 @@
 #include "./glfw_wgpu.hpp"
 #include <GLFW/glfw3.h>
-// #include <Windows.h>
 #include <cstdio>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
@@ -65,12 +64,12 @@ int main() {
     /* Init */
     println("starting");
 
-    // @todo: windows-only
-
-    // AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS) -> LONG {
-    //     println(stderr, "fatal error");
-    //     std::exit(EXIT_FAILURE);
-    // });
+#ifdef WINDOWS
+    AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS) -> LONG {
+        println(stderr, "fatal error");
+        std::exit(EXIT_FAILURE);
+    });
+#endif
 
     glfwInit();
     auto platform = glfwGetPlatform();

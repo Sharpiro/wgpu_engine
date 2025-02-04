@@ -1,7 +1,11 @@
 // #define GLFW_EXPOSE_NATIVE_WGL
-// #define GLFW_EXPOSE_NATIVE_WIN32
-// #define GLFW_EXPOSE_NATIVE_WAYLAND
+#ifdef WINDOWS
+#define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(WAYLAND)
+#define GLFW_EXPOSE_NATIVE_WAYLAND
+#elif defined(LINUX)
 #define GLFW_EXPOSE_NATIVE_X11
+#endif
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>

@@ -1,55 +1,54 @@
 #include "./glfw_wgpu.hpp"
 #include "webgpu/webgpu.h"
-#include <GLFW/glfw3native.h>
 
-// @todo: windows-only
+#ifdef WINDOWS
 
-// WGPUSurface glfwCreateWindowWGPUSurface(
-//     WGPUInstance instance, GLFWwindow *window
-// ) {
-//     auto hwnd = glfwGetWin32Window(window);
-//     auto hinstance = GetModuleHandle(nullptr);
-//     auto hwind_descriptor = WGPUSurfaceDescriptorFromWindowsHWND{
-//         .chain =
-//             {
-//                 .sType = WGPUSType_SurfaceDescriptorFromWindowsHWND,
-//             },
-//         .hinstance = hinstance,
-//         .hwnd = hwnd,
-//     };
-//     auto surface_descriptor = WGPUSurfaceDescriptor{
-//         .nextInChain = &hwind_descriptor.chain,
-//     };
-//     auto surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+WGPUSurface glfwCreateWindowWGPUSurface(
+    WGPUInstance instance, GLFWwindow *window
+) {
+    auto hwnd = glfwGetWin32Window(window);
+    auto hinstance = GetModuleHandle(nullptr);
+    auto hwind_descriptor = WGPUSurfaceDescriptorFromWindowsHWND{
+        .chain =
+            {
+                .sType = WGPUSType_SurfaceDescriptorFromWindowsHWND,
+            },
+        .hinstance = hinstance,
+        .hwnd = hwnd,
+    };
+    auto surface_descriptor = WGPUSurfaceDescriptor{
+        .nextInChain = &hwind_descriptor.chain,
+    };
+    auto surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
 
-//     return surface;
-//     return nullptr;
-// }
+    return surface;
+    return nullptr;
+}
 
-// // @todo: wayland-only
+#elif defined(WAYLAND)
 
-// WGPUSurface glfwCreateWindowWGPUSurface(
-//     WGPUInstance instance, GLFWwindow *window
-// ) {
-//     wl_display *display = glfwGetWaylandDisplay();
-//     wl_surface *wayland_window = glfwGetWaylandWindow(window);
-//     WGPUSurfaceDescriptorFromWaylandSurface x = {
-//         .chain =
-//             {
-//                 .sType = WGPUSType_SurfaceDescriptorFromWaylandSurface,
-//             },
-//         .display = display,
-//         .surface = wayland_window,
-//     };
-//     auto surface_descriptor = WGPUSurfaceDescriptor{
-//         .nextInChain = &x.chain,
-//     };
-//     auto surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+WGPUSurface glfwCreateWindowWGPUSurface(
+    WGPUInstance instance, GLFWwindow *window
+) {
+    wl_display *display = glfwGetWaylandDisplay();
+    wl_surface *wayland_window = glfwGetWaylandWindow(window);
+    WGPUSurfaceDescriptorFromWaylandSurface x = {
+        .chain =
+            {
+                .sType = WGPUSType_SurfaceDescriptorFromWaylandSurface,
+            },
+        .display = display,
+        .surface = wayland_window,
+    };
+    auto surface_descriptor = WGPUSurfaceDescriptor{
+        .nextInChain = &x.chain,
+    };
+    auto surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
 
-//     return surface;
-// }
+    return surface;
+}
 
-// @todo: x11-only
+#elif defined(LINUX)
 
 WGPUSurface glfwCreateWindowWGPUSurface(
     WGPUInstance instance, GLFWwindow *window
@@ -71,3 +70,5 @@ WGPUSurface glfwCreateWindowWGPUSurface(
 
     return surface;
 }
+
+#endif
