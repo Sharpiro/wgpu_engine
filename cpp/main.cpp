@@ -1,5 +1,6 @@
 #include "./glfw_wgpu.hpp"
 #include <GLFW/glfw3.h>
+#include <cassert>
 #include <cstdio>
 #include <format>
 #include <magic_enum/magic_enum.hpp>
@@ -199,9 +200,6 @@ int main() {
         .nextInChain = nullptr,
         .label = "My command encoder",
     };
-    auto command_encoder =
-        wgpuDeviceCreateCommandEncoder(device, &command_encoder_desc);
-
     WGPURenderPassColorAttachment renderPassColorAttachment = {
         .view = texture_view,
         .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
@@ -216,21 +214,11 @@ int main() {
         .depthStencilAttachment = nullptr,
         .timestampWrites = nullptr,
     };
-    WGPURenderPassEncoder renderPass =
-        wgpuCommandEncoderBeginRenderPass(command_encoder, &renderPassDesc);
 
     const char *shader_code = R"(
     @vertex
-    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-        var p = vec2f(0.0, 0.0);
-        if (in_vertex_index == 0u) {
-            p = vec2f(-0.5, -0.5);
-        } else if (in_vertex_index == 1u) {
-            p = vec2f(0.5, -0.5);
-        } else {
-            p = vec2f(0.0, 0.5);
-        }
-        return vec4f(p, 0.0, 1.0);
+    fn vs_main(@location(0) position: vec4f) -> @builtin(position) vec4f {
+        return position;
     }
     
     @fragment
@@ -277,11 +265,57 @@ int main() {
         .targetCount = 1,
         .targets = &color_target,
     };
+
+    /** Vertex buffers */
+
+    vector<float> vertex_data = {
+        -1.0,
+        -0.5,
+        0.0,
+        1.0,
+
+        +0.5,
+        -0.5,
+        0.0,
+        1.0,
+
+        +0.0,
+        +0.5,
+        0.0,
+        1.0,
+    };
+    auto vertex_buffer_size = vertex_data.size() * sizeof(float);
+    WGPUBufferDescriptor vertex_buffer_desc = {
+        .nextInChain = nullptr,
+        .label = "vertex_buffer",
+        .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
+        .size = vertex_buffer_size,
+        .mappedAtCreation = false,
+    };
+    auto vertex_buffer = wgpuDeviceCreateBuffer(device, &vertex_buffer_desc);
+    wgpuQueueWriteBuffer(
+        queue, vertex_buffer, 0, vertex_data.data(), vertex_buffer_size
+    );
+
+    WGPUVertexAttribute vertex_position_attrib = {
+        .format = WGPUVertexFormat_Float32x4,
+        .offset = 0,
+        .shaderLocation = 0,
+    };
+    WGPUVertexBufferLayout vertex_buffer_layout = {
+        // @todo: stride beyond 4
+        .arrayStride = sizeof(float) * 4,
+        .stepMode = WGPUVertexStepMode_Vertex,
+        .attributeCount = 1,
+        .attributes = &vertex_position_attrib,
+    };
     WGPURenderPipelineDescriptor pipelineDesc = {
         .vertex =
             {
                 .module = shader_module,
                 .entryPoint = "vs_main",
+                .bufferCount = 1,
+                .buffers = &vertex_buffer_layout,
             },
         .primitive =
             {
@@ -298,12 +332,26 @@ int main() {
             },
         .fragment = &fragment_state,
     };
-    WGPURenderPipeline pipeline =
-        wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
-    wgpuRenderPassEncoderSetPipeline(renderPass, pipeline);
-    wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
-    wgpuRenderPassEncoderEnd(renderPass);
-    wgpuRenderPassEncoderRelease(renderPass);
+    auto pipeline = wgpuDeviceCreateRenderPipeline(device, &pipelineDesc);
+
+    auto command_encoder =
+        wgpuDeviceCreateCommandEncoder(device, &command_encoder_desc);
+
+    WGPURenderPassEncoder render_pass =
+        wgpuCommandEncoderBeginRenderPass(command_encoder, &renderPassDesc);
+
+    /** Render */
+
+    wgpuRenderPassEncoderSetPipeline(render_pass, pipeline);
+    // @todo: better size param
+    auto temp_size = wgpuBufferGetSize(vertex_buffer);
+    assert(temp_size == vertex_buffer_size);
+    wgpuRenderPassEncoderSetVertexBuffer(
+        render_pass, 0, vertex_buffer, 0, vertex_buffer_size
+    );
+    wgpuRenderPassEncoderDraw(render_pass, vertex_data.size() / 4, 1, 0, 0);
+    wgpuRenderPassEncoderEnd(render_pass);
+    wgpuRenderPassEncoderRelease(render_pass);
 
     WGPUCommandBufferDescriptor command_buffer_descriptor = {
         .nextInChain = nullptr,
