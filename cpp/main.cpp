@@ -1,17 +1,19 @@
 #include "./glfw_wgpu.hpp"
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <cstdio>
 #include <format>
 #include <fstream>
 #include <magic_enum/magic_enum.hpp>
 #include <print>
 #include <sstream>
+#include <thread>
 #include <vector>
 #include <webgpu/webgpu.h>
 
 using namespace std;
 
-constexpr size_t WIDTH = 800;
+constexpr size_t WIDTH = 600;
 constexpr size_t HEIGHT = 600;
 
 struct Vertex {
@@ -81,12 +83,13 @@ int main() {
 #endif
 
         glfwInit();
-        auto platform = glfwGetPlatform();
-        if (platform == GLFW_PLATFORM_WAYLAND) {
-            println("Using Wayland backend");
-        } else if (platform == GLFW_PLATFORM_X11) {
-            println("Using X11 backend");
-        }
+
+        int32_t major;
+        int32_t minor;
+        int32_t rev;
+        glfwGetVersion(&major, &minor, &rev);
+        println("glfw v{}.{}.{}", major, minor, rev);
+
         auto x11_support = glfwPlatformSupported(GLFW_PLATFORM_X11);
         auto wayland_support = glfwPlatformSupported(GLFW_PLATFORM_WAYLAND);
         auto windows_support = glfwPlatformSupported(GLFW_PLATFORM_WIN32);
@@ -94,18 +97,35 @@ int main() {
         println("wayland support: {}", (bool)wayland_support);
         println("windows support: {}", (bool)windows_support);
 
+        auto platform = glfwGetPlatform();
+        if (platform == GLFW_PLATFORM_WAYLAND) {
+            println("Using Wayland backend");
+        } else if (platform == GLFW_PLATFORM_X11) {
+            println("Using X11 backend");
+        }
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
+        glfwWindowHint(GLFW_POSITION_X, 2800);
+        glfwWindowHint(GLFW_POSITION_Y, 500);
+
         glfwSetErrorCallback([](int error_code, const char *description) {
             println(stderr, "glfw err {}, {}", error_code, description);
         });
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         auto window =
             glfwCreateWindow(WIDTH, HEIGHT, "Block", nullptr, nullptr);
-        if (!window || glfwWindowShouldClose(window)) {
+        if (!window) {
             println("window failed to open properly");
             return 1;
         }
 
+        glfwSetWindowAttrib(window, GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
+
+        glfwSetWindowFocusCallback(window, [](GLFWwindow *, int focused) {
+            println("focus change: {}", focused);
+        });
         glfwSetWindowCloseCallback(window, [](GLFWwindow *) {
             println("window close event detected");
         });
@@ -381,6 +401,10 @@ int main() {
         println("presenting surface...");
         wgpuSurfacePresent(surface);
         println("presenting surface...done");
+
+        println("opening window...");
+        this_thread::sleep_for(chrono::seconds(1));
+        glfwShowWindow(window);
 
         println("running...");
         while (!glfwWindowShouldClose(window)) {

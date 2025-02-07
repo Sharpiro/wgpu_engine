@@ -14,7 +14,6 @@ struct VertexOut {
 fn vs_main(vertex_in: VertexIn) -> VertexOut {
     var vertex_out: VertexOut;
     vertex_out.position = vertex_in.position;
-    vertex_out.position.y *= ASPECT_RATIO;
     vertex_out.color = vertex_in.color;
     return vertex_out;
 }
