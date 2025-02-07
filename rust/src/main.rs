@@ -170,22 +170,22 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                         window.request_redraw();
                     }
                     WindowEvent::RedrawRequested => {
-                        let frame = surface
+                        let surface_texture = surface
                             .get_current_texture()
                             .expect("Failed to acquire next swap chain texture");
-                        let view = frame
+                        let texture_view = surface_texture
                             .texture
                             .create_view(&wgpu::TextureViewDescriptor::default());
-                        let mut encoder =
+                        let mut command_encoder =
                             device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                                 label: None,
                             });
                         {
                             let mut rpass =
-                                encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                                command_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                                     label: None,
                                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                        view: &view,
+                                        view: &texture_view,
                                         resolve_target: None,
                                         ops: wgpu::Operations {
                                             load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -202,8 +202,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                             rpass.draw(0..3, 0..1);
                         }
 
-                        queue.submit(Some(encoder.finish()));
-                        frame.present();
+                        let command_buffer = command_encoder.finish();
+                        queue.submit(Some(command_buffer));
+                        surface_texture.present();
                     }
                     WindowEvent::CloseRequested => target.exit(),
                     _ => {}
