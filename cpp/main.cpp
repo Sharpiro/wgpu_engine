@@ -1,4 +1,6 @@
+#include "./extension.hpp"
 #include "./glfw_wgpu.hpp"
+#include "./shape.hpp"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdio>
@@ -15,11 +17,6 @@ using namespace std;
 
 constexpr size_t WIDTH = 600;
 constexpr size_t HEIGHT = 600;
-
-struct Vertex {
-    float pos[4];
-    float color[4];
-};
 
 WGPUAdapter get_adapter(WGPUInstance instance, WGPUSurface surface) {
     WGPUAdapter adapter = nullptr;
@@ -304,38 +301,90 @@ int main() {
 
         /** Vertex data */
 
-        vector<Vertex> vertex_data = {
-            Vertex{
-                .pos = {-0.5, -0.5, 0.0, 1.0},
-                .color = {1.0, 0.0, 0.0, 1.0},
-            },
-            Vertex{
-                .pos = {0.5, -0.5, 0.0, 1.0},
-                .color = {0.0, 1.0, 0.0, 1.0},
-            },
-            Vertex{
-                .pos = {0.0, 0.5, 0.0, 1.0},
-                .color = {0.0, 0.0, 1.0, 1.0},
-            },
+        vector<Triangle> triangle_data = {
+            Triangle::get_default(),
         };
 
-        auto vertex_buffer_size = vertex_data.size() * sizeof(Vertex);
+        auto triangle_buffer_size = triangle_data.size() * sizeof(Triangle);
         WGPUBufferDescriptor vertex_buffer_desc = {
             .nextInChain = nullptr,
             .label = "vertex_buffer",
             .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex,
-            .size = vertex_buffer_size,
+            .size = triangle_buffer_size,
             .mappedAtCreation = false,
         };
         auto vertex_buffer =
             wgpuDeviceCreateBuffer(device, &vertex_buffer_desc);
         wgpuQueueWriteBuffer(
-            queue, vertex_buffer, 0, vertex_data.data(), vertex_buffer_size
+            queue, vertex_buffer, 0, triangle_data.data(), triangle_buffer_size
         );
 
         println("running...");
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+                triangle_data[0].translate({0.01, 0.0, 0.0, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+                triangle_data[0].translate({-0.01, 0.0, 0.0, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
+            if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+                triangle_data[0].translate({0.0, 0.01, 0.0, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
+            if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+                triangle_data[0].translate({0.0, -0.01, 0.0, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
+            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+                println("space");
+                triangle_data[0].translate({0.0, 0.0, -0.01, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
+            if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
+                println("enter");
+                triangle_data[0].translate({0.0, 0.0, 0.01, 1.0});
+                wgpuQueueWriteBuffer(
+                    queue,
+                    vertex_buffer,
+                    0,
+                    triangle_data.data(),
+                    sizeof(Triangle)
+                );
+            }
 
             WGPUSurfaceTexture surface_texture = {};
             wgpuSurfaceGetCurrentTexture(surface, &surface_texture);
@@ -386,11 +435,13 @@ int main() {
 
             wgpuRenderPassEncoderSetPipeline(render_pass, render_pipeline);
             wgpuRenderPassEncoderSetVertexBuffer(
-                render_pass, 0, vertex_buffer, 0, vertex_buffer_size
+                render_pass, 0, vertex_buffer, 0, triangle_buffer_size
             );
             // @todo: set bind group for uniform buffer
 
-            wgpuRenderPassEncoderDraw(render_pass, vertex_data.size(), 1, 0, 0);
+            wgpuRenderPassEncoderDraw(
+                render_pass, triangle_data.size() * 3, 1, 0, 0
+            );
             wgpuRenderPassEncoderEnd(render_pass);
             wgpuRenderPassEncoderRelease(render_pass);
 

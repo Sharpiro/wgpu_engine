@@ -23,7 +23,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(magic_enum)
 
-add_executable(block main.cpp glfw_wgpu.cpp)
+add_executable(
+    block 
+    main.cpp 
+    glfw_wgpu.cpp
+    extension.cpp 
+    shape.cpp 
+)
 target_include_directories(block PRIVATE wgpu/include)
 target_include_directories(block PRIVATE glfw/include)
 target_include_directories(block PRIVATE ${magic_enum_SOURCE_DIR}/include)
