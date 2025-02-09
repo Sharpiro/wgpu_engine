@@ -23,6 +23,19 @@ struct Vec3 {
 struct Vec4 {
     array<float, 4> data;
 
+    // @note: c++ 11
+    // template <
+    //     typename... Args,
+    //     typename = typename enable_if<sizeof...(Args) == 4>::type>
+    // constexpr Vec4(Args... args) : data{static_cast<float>(args)...} {
+    // }
+
+    // @note: c++ 14
+    // template <typename... Args, enable_if_t<sizeof...(Args) == 4, int> = 0>
+    // constexpr Vec4(Args... args) : data{static_cast<float>(args)...} {
+    // }
+
+    // @note: c++ 20
     template <typename... Args>
     constexpr Vec4(Args... args)
         requires(sizeof...(Args) == 4)
