@@ -301,6 +301,13 @@ int main() {
 
         /** Vertex data */
 
+        // auto model_matrix = mat4();
+        // translate(model_matrix, {1, 2, 3, 4});
+        // vector<Mat4> uniform_data = {
+        //     model_matrix,
+        // };
+
+        // Vec3 temp2 = temp;
         vector<Triangle> triangle_data = {
             Triangle::get_default(),
         };
@@ -324,7 +331,7 @@ int main() {
             glfwPollEvents();
 
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-                triangle_data[0].translate({0.01, 0.0, 0.0, 1.0});
+                triangle_data[0].translate({0.01, 0.0, 0.0});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
@@ -334,7 +341,7 @@ int main() {
                 );
             }
             if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-                triangle_data[0].translate({-0.01, 0.0, 0.0, 1.0});
+                triangle_data[0].translate({-0.01, 0.0, 0.0});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
@@ -344,7 +351,7 @@ int main() {
                 );
             }
             if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-                triangle_data[0].translate({0.0, 0.01, 0.0, 1.0});
+                triangle_data[0].translate({0.0, 0.01, 0.0});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
@@ -354,7 +361,7 @@ int main() {
                 );
             }
             if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-                triangle_data[0].translate({0.0, -0.01, 0.0, 1.0});
+                triangle_data[0].translate({0.0, -0.01, 0.0});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
@@ -365,7 +372,7 @@ int main() {
             }
             if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
                 println("space");
-                triangle_data[0].translate({0.0, 0.0, -0.01, 1.0});
+                triangle_data[0].translate({0.0, 0.0, -0.01});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
@@ -376,7 +383,7 @@ int main() {
             }
             if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
                 println("enter");
-                triangle_data[0].translate({0.0, 0.0, 0.01, 1.0});
+                triangle_data[0].translate({0.0, 0.0, 0.01});
                 wgpuQueueWriteBuffer(
                     queue,
                     vertex_buffer,
