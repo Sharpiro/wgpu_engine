@@ -1,3 +1,5 @@
+#pragma once
+
 // #define GLFW_EXPOSE_NATIVE_WGL
 #ifdef WINDOWS
 #define GLFW_EXPOSE_NATIVE_WIN32

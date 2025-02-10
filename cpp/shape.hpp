@@ -1,6 +1,26 @@
+#pragma once
+
 #include <array>
 
 using namespace std;
+
+struct Vec2 {
+    array<float, 2> data;
+
+    template <typename... Args>
+    constexpr Vec2(Args... args)
+        requires(sizeof...(Args) == 2)
+        : data{static_cast<float>(args)...} {
+    }
+
+    const float &operator[](size_t index) const {
+        return data[index];
+    }
+
+    size_t size() {
+        return data.size();
+    }
+};
 
 struct Vec3 {
     array<float, 3> data;
@@ -11,7 +31,7 @@ struct Vec3 {
         : data{static_cast<float>(args)...} {
     }
 
-    float &operator[](size_t index) {
+    const float &operator[](size_t index) const {
         return data[index];
     }
 
@@ -23,27 +43,25 @@ struct Vec3 {
 struct Vec4 {
     array<float, 4> data;
 
-    // @note: c++ 11
-    // template <
-    //     typename... Args,
-    //     typename = typename enable_if<sizeof...(Args) == 4>::type>
-    // constexpr Vec4(Args... args) : data{static_cast<float>(args)...} {
-    // }
-
-    // @note: c++ 14
-    // template <typename... Args, enable_if_t<sizeof...(Args) == 4, int> = 0>
-    // constexpr Vec4(Args... args) : data{static_cast<float>(args)...} {
-    // }
-
-    // @note: c++ 20
     template <typename... Args>
     constexpr Vec4(Args... args)
         requires(sizeof...(Args) == 4)
         : data{static_cast<float>(args)...} {
     }
 
+    Vec4() {
+    }
+
     float &operator[](size_t index) {
         return data[index];
+    }
+
+    const float &operator[](size_t index) const {
+        return data[index];
+    }
+
+    bool operator==(Vec4 &other) {
+        return data == other.data;
     }
 
     size_t size() {
@@ -60,13 +78,27 @@ using Mat4 = array<Vec4, 4>;
 struct Vertex {
     Vec4 pos;
     Vec4 color;
+    uint32_t triangle_index;
 };
 
 struct Triangle {
     Vertex vertices[3];
 
-    static Triangle get_default();
+    Triangle(uint32_t triangle_index);
+
+    static Triangle from(Mat4 model_matrix);
+
     void translate(Vec3 rotation);
 };
 
+Vec4 translate_vec4(Vec4 point, Vec3 translation);
+
+Mat4 scale_mat4(const Mat4 &matrix, const Vec3 &scale);
+
+Mat4 rotate_mat4(const Mat4 &matrix, const Vec2 &rotation);
+
 Mat4 mat4();
+
+Mat4 translate_mat4(const Mat4 &matrix, const Vec3 &translation);
+
+Vec4 mat_multiply(const Mat4 matrix, const Vec4 vec);
