@@ -7,9 +7,7 @@
 #include <format>
 #include <fstream>
 #include <magic_enum/magic_enum.hpp>
-#include <numbers>
 #include <print>
-#include <ranges>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -21,9 +19,11 @@ constexpr size_t SCREEN_WIDTH = 600;
 constexpr size_t SCREEN_HEIGHT = 600;
 constexpr size_t GRID_WIDTH = 4;
 constexpr size_t GRID_HEIGHT = 4;
+constexpr size_t SQUARE_COUNT = GRID_WIDTH * GRID_HEIGHT;
 
 struct UniformData {
-    array<Mat4, GRID_WIDTH> model_matrix;
+    array<Mat4, SQUARE_COUNT> model_transformations;
+    array<Vec4, SQUARE_COUNT> model_colors;
 };
 
 WGPUAdapter get_adapter(WGPUInstance instance, WGPUSurface surface) {
@@ -136,6 +136,38 @@ int main() {
         glfwSetWindowCloseCallback(window, [](GLFWwindow *) {
             println("window close event detected");
         });
+        glfwSetMouseButtonCallback(
+            window,
+            [](GLFWwindow *window, int button, int action, int) {
+                if (button != GLFW_MOUSE_BUTTON_1 || action != GLFW_PRESS) {
+                    return;
+                }
+
+                double x_pos;
+                double y_pos;
+                glfwGetCursorPos(window, &x_pos, &y_pos);
+
+                constexpr float SEGMENT_WIDTH =
+                    (float)SCREEN_WIDTH / GRID_WIDTH;
+                constexpr float SEGMENT_HEIGHT =
+                    (float)SCREEN_HEIGHT / GRID_HEIGHT;
+
+                size_t x_seg = x_pos / SEGMENT_WIDTH;
+                size_t y_seg = y_pos / SEGMENT_HEIGHT;
+
+                float x_wgsl = (x_pos / (SCREEN_WIDTH / 2.0)) - 1;
+                float y_wgsl = 1 - (y_pos / (SCREEN_HEIGHT / 2.0));
+                println(
+                    "clicked: [{}, {}], [{}, {}], [{}, {}]",
+                    x_pos,
+                    y_pos,
+                    x_seg,
+                    y_seg,
+                    x_wgsl,
+                    y_wgsl
+                );
+            }
+        );
 
         auto instance = wgpuCreateInstance(nullptr);
         if (!instance) {
@@ -273,11 +305,6 @@ int main() {
                 .offset = 16,
                 .shaderLocation = 1,
             },
-            {
-                .format = WGPUVertexFormat_Uint32,
-                .offset = 32,
-                .shaderLocation = 2,
-            },
         };
 
         WGPUVertexBufferLayout vertex_buffer_layout = {
@@ -318,11 +345,9 @@ int main() {
 
         /** Vertex data */
 
-        auto triangle_data = vector<SquareModel>();
-        for (size_t i : views::iota(0, static_cast<int>(GRID_WIDTH))) {
-            triangle_data.push_back(SquareModel(i));
-        }
-
+        auto triangle_data = vector{
+            SquareModel(),
+        };
         auto triangle_buffer_size =
             triangle_data.size() * sizeof(decltype(triangle_data)::value_type);
         WGPUBufferDescriptor vertex_buffer_desc = {
@@ -340,28 +365,48 @@ int main() {
 
         /** Uniform data */
 
-        constexpr float GL_WIDTH = 2.0 / GRID_WIDTH;
-        constexpr float GL_HEIGHT = 2.0 / GRID_HEIGHT;
+        constexpr float WGSL_WIDTH = 2.0 / GRID_WIDTH;
+        constexpr float WGSL_HEIGHT = 2.0 / GRID_HEIGHT;
         constexpr float TEMP_TRANSLATE_X = GRID_WIDTH / 2.0 - 1;
         constexpr float TEMP_TRANSLATE_Y = GRID_HEIGHT / 2.0 - 1;
         auto grid_origin_matrix =
-            scale_mat4(mat4(), {GL_WIDTH, GL_HEIGHT, 1.0});
+            scale_mat4(mat4(), {WGSL_WIDTH, WGSL_HEIGHT, 1.0});
         grid_origin_matrix = translate_mat4(
             grid_origin_matrix,
-            {-GL_WIDTH * TEMP_TRANSLATE_X, GL_HEIGHT * TEMP_TRANSLATE_Y, 0.0}
+            {-WGSL_WIDTH * TEMP_TRANSLATE_X, WGSL_HEIGHT * TEMP_TRANSLATE_Y, 0.0
+            }
         );
 
-        auto j = 0;
-        auto matrix_data = array<Mat4, GRID_WIDTH>();
-        for (size_t i = 0; i < GRID_WIDTH; i++) {
-            auto model_matrix = translate_mat4(
-                grid_origin_matrix, {GL_WIDTH * i, GL_HEIGHT * j, 0.0}
-            );
-            matrix_data[i] = model_matrix;
+        auto matrix_data = array<Mat4, SQUARE_COUNT>();
+        for (size_t j = 0; j < GRID_WIDTH; j++) {
+            for (size_t i = 0; i < GRID_HEIGHT; i++) {
+                auto model_matrix = translate_mat4(
+                    grid_origin_matrix, {WGSL_WIDTH * i, -WGSL_HEIGHT * j, 0.0}
+                );
+                matrix_data[j * GRID_WIDTH + i] = model_matrix;
+            }
         }
 
         UniformData uniform_data = {
-            .model_matrix = matrix_data,
+            .model_transformations = matrix_data,
+            .model_colors = {{
+                {1.0, 0.0, 0.0, 1},
+                {0.0, 1.0, 0.0, 1},
+                {0.0, 0.0, 1.0, 1},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+                {0.0, 0.0, 0.0, 0},
+            }},
         };
 
         WGPUBufferDescriptor uniform_buffer_desc = {
@@ -559,7 +604,7 @@ int main() {
                 // render_pass, triangle_data.size() * 3, 1, 0, 0
                 render_pass,
                 triangle_data.size() * 6,
-                1,
+                SQUARE_COUNT,
                 0,
                 0
             );

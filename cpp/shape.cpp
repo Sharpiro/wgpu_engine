@@ -1,5 +1,4 @@
 #include "./shape.hpp"
-#include <cstdint>
 #include <cstring>
 
 /* Column-major for WGSL */
@@ -110,56 +109,47 @@ Vec4 translate_vec4(const Vec4 point, const Vec3 translation) {
     return result;
 }
 
-Triangle::Triangle(uint32_t triangle_index) {
+Triangle::Triangle() {
     vertices[0] = Vertex{
         .pos = {0.0, 0.0, 0.5, 1.0},
         .color = {1.0, 0.0, 0.0, 1.0},
-        .model_index = triangle_index
     };
     vertices[1] = Vertex{
         .pos = {0.0, 1.0, 0.5, 1.0},
         .color = {0.0, 1.0, 0.0, 1.0},
-        .model_index = triangle_index
     };
     vertices[2] = Vertex{
         .pos = {-1.0, 0.0, 0.5, 1.0},
         .color = {0.0, 0.0, 1.0, 1.0},
-        .model_index = triangle_index
     };
 };
 
-SquareModel::SquareModel(uint32_t model_index) {
+SquareModel::SquareModel() {
     /* Triangle 1*/
     vertices[0] = Vertex{
         .pos = {0.0, 0.0, 0.5, 1.0},
         .color = {1.0, 0.0, 0.0, 1.0},
-        .model_index = model_index
     };
     vertices[1] = Vertex{
         .pos = {0.0, 1.0, 0.5, 1.0},
         .color = {0.0, 1.0, 0.0, 1.0},
-        .model_index = model_index
     };
     vertices[2] = Vertex{
         .pos = {-1.0, 0.0, 0.5, 1.0},
         .color = {0.0, 0.0, 1.0, 1.0},
-        .model_index = model_index
     };
 
     /* Triangle 2*/
     vertices[3] = Vertex{
         .pos = {-1.0, 1.0, 0.5, 1.0},
         .color = {1.0, 0.0, 0.0, 1.0},
-        .model_index = model_index
     };
     vertices[4] = Vertex{
         .pos = {-1.0, 0.0, 0.5, 1.0},
         .color = {0.0, 1.0, 0.0, 1.0},
-        .model_index = model_index
     };
     vertices[5] = Vertex{
         .pos = {0.0, 1.0, 0.5, 1.0},
         .color = {0.0, 0.0, 1.0, 1.0},
-        .model_index = model_index
     };
 };
