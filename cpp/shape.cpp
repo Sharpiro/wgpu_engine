@@ -1,6 +1,6 @@
 #include "./shape.hpp"
 #include <cstdint>
-#include <stdexcept>
+#include <cstring>
 
 /* Column-major for WGSL */
 
@@ -8,12 +8,12 @@ Vec4 vec4f() {
     return {0.0, 0.0, 0.0, 0.0};
 }
 
-Mat4 mat4() {
+Mat4 mat4(float d) {
     return {{
-        {1.0, 0.0, 0.0, 0.0},
-        {0.0, 1.0, 0.0, 0.0},
-        {0.0, 0.0, 1.0, 0.0},
-        {0.0, 0.0, 0.0, 1.0},
+        {d, 0.0, 0.0, 0.0},
+        {0.0, d, 0.0, 0.0},
+        {0.0, 0.0, d, 0.0},
+        {0.0, 0.0, 0.0, d},
     }};
 }
 
@@ -29,6 +29,18 @@ Vec4 mat_multiply(const Mat4 matrix, const Vec4 vec) {
         }
     }
     return vec_result;
+}
+
+Mat4 mat_multiply(const Mat4 matrix_a, const Mat4 matrix_b) {
+    Mat4 result = mat4(0);
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            for (int k = 0; k < 4; ++k) {
+                result[i][j] += matrix_a[i][k] * matrix_b[k][j];
+            }
+        }
+    }
+    return result;
 }
 
 Mat4 translate_mat4(const Mat4 &matrix, const Vec3 &translation) {
@@ -77,27 +89,13 @@ Mat4 rotate_mat4(const Mat4 &matrix, const Vec2 &rotation) {
      * }};
      */
 
-    auto result = mat4();
     auto rotation_matrix = mat4();
-    // memcpy(&result, &matrix, sizeof(Mat4));
     rotation_matrix[0][0] = rotation[0];
     rotation_matrix[0][1] = rotation[1];
     rotation_matrix[1][0] = -rotation[1];
     rotation_matrix[1][1] = rotation[0];
 
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            result[i][j] = 0.0f;
-            for (int k = 0; k < 4; ++k) {
-                result[i][j] += matrix[i][k] * rotation_matrix[k][j];
-            }
-        }
-    }
-
-    // result[0][0] = rotation[0];
-    // result[0][1] = -rotation[1];
-    // result[1][0] = rotation[1];
-    // result[1][1] = rotation[0];
+    auto result = mat_multiply(matrix, rotation_matrix);
     return result;
 }
 
@@ -116,27 +114,52 @@ Triangle::Triangle(uint32_t triangle_index) {
     vertices[0] = Vertex{
         .pos = {0.0, 0.0, 0.5, 1.0},
         .color = {1.0, 0.0, 0.0, 1.0},
-        .triangle_index = triangle_index
+        .model_index = triangle_index
     };
     vertices[1] = Vertex{
         .pos = {0.0, 1.0, 0.5, 1.0},
         .color = {0.0, 1.0, 0.0, 1.0},
-        .triangle_index = triangle_index
+        .model_index = triangle_index
     };
     vertices[2] = Vertex{
         .pos = {-1.0, 0.0, 0.5, 1.0},
         .color = {0.0, 0.0, 1.0, 1.0},
-        .triangle_index = triangle_index
+        .model_index = triangle_index
     };
 };
 
-Triangle Triangle::from(Mat4 model_matrix) {
-    // auto triangle = Triangle::get_default();
-    throw runtime_error("unimp");
-}
+SquareModel::SquareModel(uint32_t model_index) {
+    /* Triangle 1*/
+    vertices[0] = Vertex{
+        .pos = {0.0, 0.0, 0.5, 1.0},
+        .color = {1.0, 0.0, 0.0, 1.0},
+        .model_index = model_index
+    };
+    vertices[1] = Vertex{
+        .pos = {0.0, 1.0, 0.5, 1.0},
+        .color = {0.0, 1.0, 0.0, 1.0},
+        .model_index = model_index
+    };
+    vertices[2] = Vertex{
+        .pos = {-1.0, 0.0, 0.5, 1.0},
+        .color = {0.0, 0.0, 1.0, 1.0},
+        .model_index = model_index
+    };
 
-void Triangle::translate(Vec3 translation) {
-    this->vertices[0].pos = translate_vec4(this->vertices[0].pos, translation);
-    this->vertices[1].pos = translate_vec4(this->vertices[1].pos, translation);
-    this->vertices[2].pos = translate_vec4(this->vertices[2].pos, translation);
-}
+    /* Triangle 2*/
+    vertices[3] = Vertex{
+        .pos = {-1.0, 1.0, 0.5, 1.0},
+        .color = {1.0, 0.0, 0.0, 1.0},
+        .model_index = model_index
+    };
+    vertices[4] = Vertex{
+        .pos = {-1.0, 0.0, 0.5, 1.0},
+        .color = {0.0, 1.0, 0.0, 1.0},
+        .model_index = model_index
+    };
+    vertices[5] = Vertex{
+        .pos = {0.0, 1.0, 0.5, 1.0},
+        .color = {0.0, 0.0, 1.0, 1.0},
+        .model_index = model_index
+    };
+};

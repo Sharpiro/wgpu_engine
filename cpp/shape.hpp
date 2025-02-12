@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 using namespace std;
 
@@ -78,17 +79,19 @@ using Mat4 = array<Vec4, 4>;
 struct Vertex {
     Vec4 pos;
     Vec4 color;
-    uint32_t triangle_index;
+    uint32_t model_index;
 };
 
 struct Triangle {
     Vertex vertices[3];
 
     Triangle(uint32_t triangle_index);
+};
 
-    static Triangle from(Mat4 model_matrix);
+struct SquareModel {
+    Vertex vertices[6];
 
-    void translate(Vec3 rotation);
+    SquareModel(uint32_t triangle_index);
 };
 
 Vec4 translate_vec4(Vec4 point, Vec3 translation);
@@ -97,7 +100,7 @@ Mat4 scale_mat4(const Mat4 &matrix, const Vec3 &scale);
 
 Mat4 rotate_mat4(const Mat4 &matrix, const Vec2 &rotation);
 
-Mat4 mat4();
+Mat4 mat4(float d = 1);
 
 Mat4 translate_mat4(const Mat4 &matrix, const Vec3 &translation);
 

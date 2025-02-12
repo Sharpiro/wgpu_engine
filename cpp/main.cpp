@@ -9,6 +9,7 @@
 #include <magic_enum/magic_enum.hpp>
 #include <numbers>
 #include <print>
+#include <ranges>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -16,11 +17,13 @@
 
 using namespace std;
 
-constexpr size_t WIDTH = 600;
-constexpr size_t HEIGHT = 600;
+constexpr size_t SCREEN_WIDTH = 600;
+constexpr size_t SCREEN_HEIGHT = 600;
+constexpr size_t GRID_WIDTH = 4;
+constexpr size_t GRID_HEIGHT = 4;
 
 struct UniformData {
-    Mat4 model_matrix[2];
+    array<Mat4, GRID_WIDTH> model_matrix;
 };
 
 WGPUAdapter get_adapter(WGPUInstance instance, WGPUSurface surface) {
@@ -120,8 +123,9 @@ int main() {
         glfwSetErrorCallback([](int error_code, const char *description) {
             println(stderr, "glfw err {}, {}", error_code, description);
         });
-        auto window =
-            glfwCreateWindow(WIDTH, HEIGHT, "Block", nullptr, nullptr);
+        auto window = glfwCreateWindow(
+            SCREEN_WIDTH, SCREEN_HEIGHT, "Block", nullptr, nullptr
+        );
         if (!window) {
             println("window failed to open properly");
             return 1;
@@ -203,8 +207,8 @@ int main() {
             .format = texture_format,
             .usage = WGPUTextureUsage_RenderAttachment,
             .alphaMode = WGPUCompositeAlphaMode_Auto,
-            .width = WIDTH,
-            .height = HEIGHT,
+            .width = SCREEN_WIDTH,
+            .height = SCREEN_HEIGHT,
             .presentMode = WGPUPresentMode_Fifo,
         };
 
@@ -314,12 +318,13 @@ int main() {
 
         /** Vertex data */
 
-        vector<Triangle> triangle_data = {
-            Triangle(0),
-            Triangle(1),
-        };
+        auto triangle_data = vector<SquareModel>();
+        for (size_t i : views::iota(0, static_cast<int>(GRID_WIDTH))) {
+            triangle_data.push_back(SquareModel(i));
+        }
 
-        auto triangle_buffer_size = triangle_data.size() * sizeof(Triangle);
+        auto triangle_buffer_size =
+            triangle_data.size() * sizeof(decltype(triangle_data)::value_type);
         WGPUBufferDescriptor vertex_buffer_desc = {
             .nextInChain = nullptr,
             .label = "vertex_buffer",
@@ -335,20 +340,28 @@ int main() {
 
         /** Uniform data */
 
-        auto cosx = cos(numbers::pi / 2);
-        auto siny = sin(numbers::pi / 2);
+        constexpr float GL_WIDTH = 2.0 / GRID_WIDTH;
+        constexpr float GL_HEIGHT = 2.0 / GRID_HEIGHT;
+        constexpr float TEMP_TRANSLATE_X = GRID_WIDTH / 2.0 - 1;
+        constexpr float TEMP_TRANSLATE_Y = GRID_HEIGHT / 2.0 - 1;
+        auto grid_origin_matrix =
+            scale_mat4(mat4(), {GL_WIDTH, GL_HEIGHT, 1.0});
+        grid_origin_matrix = translate_mat4(
+            grid_origin_matrix,
+            {-GL_WIDTH * TEMP_TRANSLATE_X, GL_HEIGHT * TEMP_TRANSLATE_Y, 0.0}
+        );
 
-        auto model1_matrix = scale_mat4(mat4(), {0.5, 0.5, 1});
-        model1_matrix = rotate_mat4(model1_matrix, {cosx, siny});
-        auto model2_matrix =
-            translate_mat4(scale_mat4(mat4(), {0.5, 0.5, 1}), {-0.5, 0, 0});
-        ;
+        auto j = 0;
+        auto matrix_data = array<Mat4, GRID_WIDTH>();
+        for (size_t i = 0; i < GRID_WIDTH; i++) {
+            auto model_matrix = translate_mat4(
+                grid_origin_matrix, {GL_WIDTH * i, GL_HEIGHT * j, 0.0}
+            );
+            matrix_data[i] = model_matrix;
+        }
+
         UniformData uniform_data = {
-            .model_matrix =
-                {
-                    model1_matrix,
-                    model2_matrix,
-                },
+            .model_matrix = matrix_data,
         };
 
         WGPUBufferDescriptor uniform_buffer_desc = {
@@ -380,48 +393,87 @@ int main() {
         );
 
         println("running...");
+        // bool key_release = false;
+        // auto w_key_release = optional(false);
+        // optional<bool> w_key_release = nullopt;
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 
             // if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            //     triangle_data[0].translate({0.01, 0.0, 0.0});
+            //     model1_matrix = scale_mat4(model1_matrix, {0.95, 0.95, 1});
+            //     uniform_data = {
+            //         .model_matrix =
+            //             {
+            //                 model1_matrix,
+            //                 // model2_matrix,
+            //             },
+            //     };
             //     wgpuQueueWriteBuffer(
-            //         queue,
-            //         vertex_buffer,
-            //         0,
-            //         triangle_data.data(),
-            //         sizeof(Triangle)
+            //         queue, uniform_buffer, 0, &uniform_data,
+            //         sizeof(UniformData)
             //     );
             // }
             // if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            //     triangle_data[0].translate({-0.01, 0.0, 0.0});
+            //     model1_matrix = scale_mat4(model1_matrix, {1.05, 1.05, 1});
+            //     uniform_data = {
+            //         .model_matrix =
+            //             {
+            //                 model1_matrix,
+            //                 // model2_matrix,
+            //             },
+            //     };
             //     wgpuQueueWriteBuffer(
-            //         queue,
-            //         vertex_buffer,
-            //         0,
-            //         triangle_data.data(),
-            //         sizeof(Triangle)
+            //         queue, uniform_buffer, 0, &uniform_data,
+            //         sizeof(UniformData)
             //     );
             // }
-            // if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            //     triangle_data[0].translate({0.0, 0.01, 0.0});
+            // if (!w_key_release.has_value() &&
+            //     glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            //     w_key_release = optional(false);
+            // }
+            // if (w_key_release.has_value() && !w_key_release.value() &&
+            //     glfwGetKey(window, GLFW_KEY_W) == GLFW_RELEASE) {
+            //     w_key_release = optional(true);
+            // }
+            // if (w_key_release.has_value() && w_key_release.value()) {
+            //     w_key_release = nullopt;
+            //     println("release");
+            //     constexpr float ROTATION = numbers::pi / 20;
+            //     auto cosx = cos(ROTATION);
+            //     auto siny = sin(ROTATION);
+            //     model1_matrix = rotate_mat4(model1_matrix, {cosx, siny});
+            //     uniform_data = {
+            //         .model_matrix =
+            //             {
+            //                 model1_matrix,
+            //                 // model2_matrix,
+            //             },
+            //     };
             //     wgpuQueueWriteBuffer(
-            //         queue,
-            //         vertex_buffer,
-            //         0,
-            //         triangle_data.data(),
-            //         sizeof(Triangle)
+            //         queue, uniform_buffer, 0, &uniform_data,
+            //         sizeof(UniformData)
             //     );
             // }
+
             // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            //     triangle_data[0].translate({0.0, -0.01, 0.0});
+            //     // if (!tick) {
+            //     tick = true;
+            //     constexpr float ROTATION = numbers::pi / 2;
+            //     auto cosx = cos(ROTATION);
+            //     auto siny = sin(ROTATION);
+            //     model1_matrix = rotate_mat4(model1_matrix, {cosx, siny});
+            //     uniform_data = {
+            //         .model_matrix =
+            //             {
+            //                 model1_matrix,
+            //                 model2_matrix,
+            //             },
+            //     };
             //     wgpuQueueWriteBuffer(
-            //         queue,
-            //         vertex_buffer,
-            //         0,
-            //         triangle_data.data(),
-            //         sizeof(Triangle)
+            //         queue, uniform_buffer, 0, &uniform_data,
+            //         sizeof(UniformData)
             //     );
+            //     // }
             // }
             // if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
             //     println("space");
@@ -501,8 +553,15 @@ int main() {
                 render_pass, 0, uniform_bind_group, 0, nullptr
             );
 
+            // auto temp = triangle_data
             wgpuRenderPassEncoderDraw(
-                render_pass, triangle_data.size() * 3, 1, 0, 0
+                // @todo: generic vert count
+                // render_pass, triangle_data.size() * 3, 1, 0, 0
+                render_pass,
+                triangle_data.size() * 6,
+                1,
+                0,
+                0
             );
             wgpuRenderPassEncoderEnd(render_pass);
             wgpuRenderPassEncoderRelease(render_pass);
